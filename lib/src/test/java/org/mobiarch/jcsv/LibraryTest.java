@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 import org.junit.Test;
+import static org.junit.Assert.*;
 
 public class LibraryTest {
     public static void print(ByteBuffer buff) {
@@ -22,24 +23,25 @@ public class LibraryTest {
         }
     }
 
-    @Test public void basicUsage() {
+    @Test 
+    public void basicUsage() {
         var str =
-            "aa,bb,cc,dd\r\n" +
+            "aa,bb,\"AA, BB\"  ,dd\r\n" +
             "ee,ff,gg,hh,ii,jj\r\n";
         var data = ByteBuffer.wrap(str.getBytes(StandardCharsets.UTF_8));
 
         Parser p = new Parser();
         
         p.parse(data, 10, record -> {
-            System.out.println(record.lineIndex());
+            assertTrue(record.lineIndex() < 2);
 
-            for (int i = 0; i < record.numFields(); ++i) {
-                System.out.print("[");
-                print(record.fields()[i]);
-                System.out.print("]");
+            if (record.lineIndex() == 0) {
+                assertEquals(record.field(2).limit(), 6);
+            } else if (record.lineIndex() == 1) {
+                assertEquals(record.numFields(), 6);
+            } else {
+                fail("Invalid row index");
             }
-
-            System.out.println();
         });
     }
 }

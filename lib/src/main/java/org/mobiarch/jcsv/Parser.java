@@ -20,8 +20,16 @@ public class Parser {
             return numFields;
         }
 
-        public ByteBuffer[] fields() {
+        private ByteBuffer[] fields() {
             return fields;
+        }
+
+        public ByteBuffer field(int index) {
+            if (index >= numFields) {
+                throw new ArrayIndexOutOfBoundsException("fields available: " + numFields);
+            }
+
+            return fields[index];
         }
     }
 
@@ -106,11 +114,15 @@ public class Parser {
         }
     }
 
+    private int markStop(ByteBuffer data) {
+        return data.position() > 0 ? (data.position() - 1) : 0;
+    }
+
     private ByteBuffer nextField(ByteBuffer data) {
         boolean insideDquote = false;
         boolean escapedField = false;
         int fieldStart = data.position();
-        int fieldEnd = data.position();
+        int fieldEnd = markStop(data);
 
         while (true) {
             if (!data.hasRemaining()) {
@@ -135,7 +147,7 @@ public class Parser {
                         // We are out of dquote
                         insideDquote = false;
 
-                        fieldEnd = data.position();
+                        fieldEnd = markStop(data);
                     }
                 }
 
@@ -149,7 +161,7 @@ public class Parser {
         
             if (ch == ',') {
                 if (!escapedField) {
-                    fieldEnd = data.position();
+                    fieldEnd = markStop(data);
                 }
                 
                 status = ParseStatus.HAS_MORE_FIELDS;
@@ -159,7 +171,7 @@ public class Parser {
             
             if (ch == '\r') {
                 if (!escapedField) {
-                    fieldEnd = data.position();
+                    fieldEnd = markStop(data);
                 }
                 
                 pop(data); //Read the LF \n
@@ -174,7 +186,7 @@ public class Parser {
              */
             if (ch == '\n') {
                 if (!escapedField) {
-                    fieldEnd = data.position();
+                    fieldEnd = markStop(data);
                 }
     
                 status = ParseStatus.END_RECORD;
