@@ -3,7 +3,11 @@
  */
 package org.mobiarch.jcsv;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.function.Consumer;
 
 public class Parser {
@@ -26,7 +30,7 @@ public class Parser {
 
         public ByteBuffer field(int index) {
             if (index >= numFields) {
-                throw new ArrayIndexOutOfBoundsException("fields available: " + numFields);
+                throw new ArrayIndexOutOfBoundsException("Fields available: " + numFields);
             }
 
             return fields[index];
@@ -41,6 +45,16 @@ public class Parser {
     }
 
     ParseStatus status = ParseStatus.INVALID_STATE;
+
+    public void parse(String filePath, int maxFields, Consumer<Record> f) throws FileNotFoundException, IOException {
+        try (var file = new RandomAccessFile(filePath, "r")) {
+            //Memory map the file
+            var buff = file.getChannel()
+                    .map(FileChannel.MapMode.READ_ONLY, 0, file.length());
+
+            parse(buff, maxFields, f);
+        } 
+    }
 
     public void parse(ByteBuffer data, int maxFields, Consumer<Record> f) {
         var record = new Record();
@@ -78,10 +92,6 @@ public class Parser {
 
     private byte pop(ByteBuffer data) {
         return data.get();
-    }
-
-    private void putback(ByteBuffer data) {
-        data.position(data.position() - 1);
     }
 
     /**

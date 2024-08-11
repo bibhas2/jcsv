@@ -44,4 +44,15 @@ public class LibraryTest {
             }
         });
     }
+
+    @Test
+    public void mapTest() throws Exception {
+        Parser p = new Parser();
+        
+        p.parse("test-data/medals.csv", 10, record -> {
+            System.out.print("[");
+            print(record.field(0));
+            System.out.println("]");  
+        });
+    }
 }
