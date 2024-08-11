@@ -3,8 +3,183 @@
  */
 package org.mobiarch.jcsv;
 
+import java.nio.ByteBuffer;
+import java.util.function.Consumer;
+
 public class Parser {
-    public boolean someLibraryMethod() {
-        return true;
+    public class Record {
+        private int lineIndex;
+        private int numFields;
+        private ByteBuffer[] fields;
+
+        public int lineIndex() {
+            return lineIndex;
+        }
+
+        public int numFields() {
+            return numFields;
+        }
+
+        public ByteBuffer[] fields() {
+            return fields;
+        }
+    }
+
+    private enum ParseStatus {
+        INVALID_STATE,
+        HAS_MORE_FIELDS,
+        END_RECORD,
+        END_DOCUMENT
+    }
+
+    ParseStatus status = ParseStatus.INVALID_STATE;
+
+    public void parse(ByteBuffer data, int maxFields, Consumer<Record> f) {
+        var record = new Record();
+        var fields = new ByteBuffer[maxFields];
+
+        record.fields = fields;
+
+        int index = 0;
+
+        while (true) {
+            parseRecord(data, record);
+            
+            if (status == ParseStatus.END_DOCUMENT) {
+                break;
+            }
+            
+            record.lineIndex = index;
+
+            f.accept(record);
+
+            ++index;
+        }
+    }
+
+    /**
+     * Get the byte at current position without advancing the position.
+     * 
+     * @param data
+     * @return
+     */
+    private byte peek(ByteBuffer data) {
+        return data.get(data.position());
+    }
+
+    private byte pop(ByteBuffer data) {
+        return data.get();
+    }
+
+    private void putback(ByteBuffer data) {
+        data.position(data.position() - 1);
+    }
+
+    /**
+     * Parses a single line at the current position.
+     * 
+     * @param data
+     * @param record
+     * @return
+     */
+    private void parseRecord(ByteBuffer data, Record record) {
+        record.numFields = 0;
+        status = ParseStatus.INVALID_STATE;
+
+        while (true) {
+            ByteBuffer field = nextField(data);
+
+            if (status == ParseStatus.END_DOCUMENT) {
+                return;
+            }
+
+            if (record.numFields() < record.fields().length) {
+                record.fields()[record.numFields()] = field;
+
+                ++record.numFields;
+            }
+
+            if (status == ParseStatus.END_RECORD) {
+                return;
+            }
+        }
+    }
+
+    private ByteBuffer nextField(ByteBuffer data) {
+        boolean insideDquote = false;
+        boolean escapedField = false;
+        int fieldStart = data.position();
+        int fieldEnd = data.position();
+
+        while (true) {
+            if (!data.hasRemaining()) {
+                status = ParseStatus.END_DOCUMENT;
+
+                return null;
+            }
+
+            byte ch = pop(data);
+
+            if (ch == '"') {
+                if (!insideDquote) {
+                    insideDquote = true;
+                    escapedField = true;
+
+                    fieldStart = data.position();
+                } else {
+                    if (peek(data) == '"') {
+                        // Still inside dquote
+                        pop(data);
+                    } else {
+                        // We are out of dquote
+                        insideDquote = false;
+
+                        fieldEnd = data.position();
+                    }
+                }
+
+                continue;
+            }
+
+            if (insideDquote) {
+                continue;
+            }
+
+        
+            if (ch == ',') {
+                if (!escapedField) {
+                    fieldEnd = data.position();
+                }
+                
+                status = ParseStatus.HAS_MORE_FIELDS;
+
+                return data.slice(fieldStart, fieldEnd - fieldStart);
+            }
+            
+            if (ch == '\r') {
+                if (!escapedField) {
+                    fieldEnd = data.position();
+                }
+                
+                pop(data); //Read the LF \n
+
+                status = ParseStatus.END_RECORD;
+                
+                return data.slice(fieldStart, fieldEnd - fieldStart);
+            }
+            
+            /*
+             * Non-standard end of line with just a LF \n
+             */
+            if (ch == '\n') {
+                if (!escapedField) {
+                    fieldEnd = data.position();
+                }
+    
+                status = ParseStatus.END_RECORD;
+                
+                return data.slice(fieldStart, fieldEnd - fieldStart);
+            }
+        }
     }
 }
