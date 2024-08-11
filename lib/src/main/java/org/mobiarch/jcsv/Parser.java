@@ -40,6 +40,7 @@ public class Parser {
 
         record.fields = fields;
 
+        status = ParseStatus.INVALID_STATE;
         int index = 0;
 
         while (true) {
@@ -48,7 +49,7 @@ public class Parser {
             if (status == ParseStatus.END_DOCUMENT) {
                 break;
             }
-            
+
             record.lineIndex = index;
 
             f.accept(record);

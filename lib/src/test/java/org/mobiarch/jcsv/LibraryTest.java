@@ -3,13 +3,43 @@
  */
 package org.mobiarch.jcsv;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
 public class LibraryTest {
-    @Test public void someLibraryMethodReturnsTrue() {
-        Parser classUnderTest = new Parser();
-        assertTrue("someLibraryMethod should return 'true'", classUnderTest.someLibraryMethod());
+    public static void print(ByteBuffer buff) {
+        if (buff == null) {
+            System.out.println("null");
+
+            return;
+        }
+
+        //Dump bytes
+        for (int i = 0; i < buff.limit(); ++i) {
+            System.out.write((int) buff.get(i));
+        }
+    }
+
+    @Test public void basicUsage() {
+        var str =
+            "aa,bb,cc,dd\r\n" +
+            "ee,ff,gg,hh,ii,jj\r\n";
+        var data = ByteBuffer.wrap(str.getBytes(StandardCharsets.UTF_8));
+
+        Parser p = new Parser();
+        
+        p.parse(data, 10, record -> {
+            System.out.println(record.lineIndex());
+
+            for (int i = 0; i < record.numFields(); ++i) {
+                System.out.print("[");
+                print(record.fields()[i]);
+                System.out.print("]");
+            }
+
+            System.out.println();
+        });
     }
 }
