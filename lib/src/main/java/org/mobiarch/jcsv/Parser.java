@@ -65,6 +65,26 @@ public class Parser {
 
             return fields[index];
         }
+
+        /**
+         * Returns an integer value for a field.
+         * 
+         * @param index The index of the field.
+         * @return Integer value of the field.
+         */
+        public int intField(int index) {
+            return Parser.parseInt(field(index));
+        }
+
+        /**
+         * Returns a double value of a field.
+         * 
+         * @param index The index of the field.
+         * @return Double value of the field.
+         */
+        public double doubleField(int index) {
+            return Parser.parseDouble(field(index));
+        }
     }
 
     private enum ParseStatus {
@@ -90,7 +110,8 @@ public class Parser {
      * to the consumer function. If you have more fields in a line then the 
      * excess ones are ignored.
      * @param f The consumer function that is called for each record (line). It
-     * receoves a Record object as input.
+     * receoves a Record object as input. The Record object may be reused for 
+     * the subsequent records. 
      */
     public void parse(String filePath, int maxFields, Consumer<Record> f) throws FileNotFoundException, IOException {
         try (var file = new RandomAccessFile(filePath, "r")) {
@@ -284,4 +305,167 @@ public class Parser {
     private ByteBuffer segment(ByteBuffer data, int fieldStart, int fieldEnd) {
         return data.slice(fieldStart, fieldEnd - fieldStart);
     }
+
+    /**
+     * 
+     * Returns a slice of the supplied buffer by
+     * excluding the leading and trailing white spaces.
+     * 
+     * @param buff The ByteBuffer to trim.
+     * 
+     * @return A new ByteBuffer that is a slice of the supplied
+     * ByteBuffer. The original ByteBuffer is left unaltered.
+     */
+    public static ByteBuffer trim(ByteBuffer buff) {
+        if (buff.limit() == 0) {
+            return buff;
+        }
+
+        int start = 0;
+        int end = 0;
+        int i;
+        final int MAX_INDEX = buff.limit() - 1;
+
+        for (i = 0; i < buff.limit(); ++i) {
+            var ch = buff.get(i);
+
+            if (ch != 32 && ch != 9) {
+                break;
+            }
+        }
+
+        //Clip start to max index.
+        start = Math.min(i, MAX_INDEX);
+
+        for (i = buff.limit() - 1; i >= 0; --i) {
+            var ch = buff.get(i);
+
+            if (ch != 32 && ch != 9) {
+                break;
+            }
+
+            //Early breaking
+            if (i < start) {
+                break;
+            }
+        }
+
+        end = i;
+
+        if (end < start) {
+            //This happens for a completely white space string.
+            end = start - 1;
+        }
+
+        if (start == 0 && end == buff.limit() - 1) {
+            //Nothing to trim
+            return buff;
+        } else {
+            return buff.slice(start, end - start + 1);
+        }
+    }
+
+    /**
+     * <p>Parses the ByteBuffer into a double. Aside from digits 0-9 only 
+     * a leading "-" and a decimal "." character are permitted.</p>
+     * 
+     * <p>Valid values: -0.001, 100, -100, -.001, -12.001</p>
+     * 
+     * @param buff The ByteBuffer to parse.
+     * 
+     * @return The parsed double value.
+     */
+    public static double parseDouble(ByteBuffer buff) {
+        double result = 0.0;
+        int decimalBase = 1;
+        int base = 1;
+        boolean hasDecimal = false;
+     
+        /*
+         * Java's Double.parseDouble() trims the String.
+         * Let's do the same.
+         */
+        buff = trim(buff);
+
+        for (int i = buff.limit() - 1; i >= 0; --i) {
+            int ch = buff.get(i);
+     
+            //Deal with minus sign
+            if (i == 0 && ch == 45) {
+                result *= -1;
+     
+                continue;
+            }
+
+            if (ch == 46) {
+                hasDecimal = true;
+
+                continue;
+            }
+     
+            if (ch < 48 || ch > 57) {
+                throw new NumberFormatException("Invalid input.");
+            }
+     
+            int digit = buff.get(i) - 48;
+     
+            result = result + digit * base;
+     
+            base = base * 10;
+
+            if (!hasDecimal) {
+                decimalBase *= 10;
+            }
+        }
+     
+        if (hasDecimal) {
+            return result / decimalBase;
+        } else {
+            return result;
+        }
+    }
+
+    /**
+     * <p>Parses the ByteBuffer into an integer. Aside from digits 0-9 only 
+     * a leading "-" character is permitted.</p>
+     * 
+     * <p>Valid values: 100, -100, -0012</p>
+     * 
+     * @param buff The ByteBuffer to parse.
+     * 
+     * @return The parsed integer value.
+     */
+    public static int parseInt(ByteBuffer buff) {
+        int result = 0;
+        int base = 1;
+
+        /*
+         * Java's Integer.parseInt() trims the String.
+         * Let's do the same.
+         */
+        buff = trim(buff);
+        
+        for (int i = buff.limit() - 1; i >= 0; --i) {
+            int ch = buff.get(i);
+     
+            //Deal with minus sign
+            if (i == 0 && ch == 45) {
+                result *= -1;
+     
+                continue;
+            }
+     
+            if (ch < 48 || ch > 57) {
+                throw new NumberFormatException("Invalid input.");
+            }
+     
+            int digit = buff.get(i) - 48;
+     
+            result = result + digit * base;
+     
+            base = base * 10;
+        }
+     
+        return result;
+    }    
 }

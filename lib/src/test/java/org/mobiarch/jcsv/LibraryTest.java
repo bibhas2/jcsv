@@ -70,4 +70,20 @@ public class LibraryTest {
 
         assertEquals(4, line[0]);
     }
+
+    @Test
+    public void parseIntTest() throws Exception {
+        Parser p = new Parser();
+        int[] medalTotal = {0, 0, 0};
+
+        p.parse("test-data/medals.csv", 10, record -> {
+            medalTotal[0] += record.intField(1);
+            medalTotal[1] += record.intField(2);
+            medalTotal[2] += record.intField(3);
+        });
+
+        int[] expectedMedalTotal = {108, 114, 113};
+
+        assertArrayEquals(expectedMedalTotal, medalTotal);
+    }
 }
