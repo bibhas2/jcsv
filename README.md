@@ -42,12 +42,12 @@ public void parseDoubleTest() throws Exception {
 ```
 
 ## What is it Good for?
-``ByteBuffer`` is very similar to ``std::string_view`` in C++. Their hidden power comes from the fact that they can be compared and sorted. All sorts of benefit come from that. For example, they can be used as keys in a hash map.
+``ByteBuffer`` is very similar to ``std::string_view`` in C++. Their hidden power comes from the fact that they can be compared and sorted. All manners of benefit come from that. For example, they can be used as keys in a hash map.
 
-I'm hoping that this CSV parser will be a better than the traditional libraries to process a large CSV file in a memory constrainted environment. In general, this library will be a good fit where the entire content of the CSV needs to be loaded into memory. Example uses case will include:
+I'm hoping that this CSV parser will be good at processing large CSV files in a memory constrainted environment. In general, this library will be a good fit where the entire content of the CSV needs to be loaded into memory. Example uses case will include:
 
 - Sorting a CSV file.
-- Searching repeatedly within the file based on a key. You can store the key ``ByteBuffer`` fields in a hash map to speed up searching.
+- Searching repeatedly within the file based on a key. You can store the key field (which is a ``ByteBuffer``) in a hash map to speed up searching.
 
 In the example below we lookup the revenue for a product using its ID.
 
@@ -67,9 +67,11 @@ public void comparisonTest() throws Exception {
         double price = record.doubleField(1);
         int quantity = record.intField(2);
 
+        //Store the revenue for a product
         map.put(productId, price * quantity);
     });
 
+    //Lookup the revenue for product "K192".
     var key = ByteBuffer.wrap(
         "K192".getBytes(StandardCharsets.UTF_8));
 
