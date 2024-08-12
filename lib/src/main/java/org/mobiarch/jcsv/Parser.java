@@ -11,15 +11,29 @@ import java.nio.channels.FileChannel;
 import java.util.function.Consumer;
 
 public class Parser {
+    /**
+     * This class represents a record (line or row) in a CSV
+     * document.
+     */
     public class Record {
         private int lineIndex;
         private int numFields;
         private ByteBuffer[] fields;
 
+        /**
+         * Returns the index of the line starting with 0.
+         * @return The zero based line number of the record.
+         */
         public int lineIndex() {
             return lineIndex;
         }
 
+        /**
+         * Returns the number of fields available in the record.
+         * This will not be more than the maxFields parameter supplied
+         * to Parser.parse() method.
+         * @return The number of fields available in the record.
+         */
         public int numFields() {
             return numFields;
         }
@@ -28,6 +42,12 @@ public class Parser {
             return fields;
         }
 
+        /**
+         * Returns a field for the specified index.
+         * 
+         * @param index The index of the field.
+         * @return A ByteBuffer representing the field.
+         */
         public ByteBuffer field(int index) {
             if (index >= numFields) {
                 throw new ArrayIndexOutOfBoundsException("Fields available: " + numFields);
@@ -46,6 +66,22 @@ public class Parser {
 
     ParseStatus status = ParseStatus.INVALID_STATE;
 
+    /**
+     * <p>Memory maps a UTF-8 encoded CSV file and parses it. 
+     * For each record (line) the supplied
+     * consumer function is called. Each record is made up
+     * of zero or more comma separated fields.</p>
+     * 
+     * <p>No new memory is allocated or copied for the text data.
+     * Each field is a slice into the data stored in the file.</p>
+     * 
+     * @param filePath The CSV file to parse.
+     * @param maxFields Maximum number of fields that will be returned
+     * to the consumer function. If you have more fields in a line then the 
+     * excess ones are ignored.
+     * @param f The consumer function that is called for each record (line). It
+     * receoves a Record object as input.
+     */
     public void parse(String filePath, int maxFields, Consumer<Record> f) throws FileNotFoundException, IOException {
         try (var file = new RandomAccessFile(filePath, "r")) {
             //Memory map the file
@@ -56,6 +92,22 @@ public class Parser {
         } 
     }
 
+    /**
+     * <p>Parses a UTF-8 encoded ByteBuffer for comma
+     * separate records. For each record (line) the supplied
+     * consumer function is called. Each record is made up
+     * of zero or more comma separated fields.</p>
+     * 
+     * <p>No new memory is allocated or copied for the text data.
+     * Each field is a slice into the supplied data.</p>
+     * 
+     * @param data The ByteBuffer to parse.
+     * @param maxFields Maximum number of fields that will be returned
+     * to the consumer function. If you have more fields in a line then the 
+     * excess ones are ignored.
+     * @param f The consumer function that is called for each record (line). It
+     * receoves a Record object as input.
+     */
     public void parse(ByteBuffer data, int maxFields, Consumer<Record> f) {
         var record = new Record();
         var fields = new ByteBuffer[maxFields];
@@ -69,7 +121,12 @@ public class Parser {
             parseRecord(data, record);
             
             if (status == ParseStatus.END_DOCUMENT) {
-                break;
+                if (record.numFields() == 0) {
+                    break;
+                } else {
+                    //This happens when a file doesn't end 
+                    //properly with a CR LF or LF.
+                }
             }
 
             record.lineIndex = index;
@@ -108,17 +165,14 @@ public class Parser {
         while (true) {
             ByteBuffer field = nextField(data);
 
-            if (status == ParseStatus.END_DOCUMENT) {
-                return;
-            }
-
-            if (record.numFields() < record.fields().length) {
+            if (field != null && record.numFields() < record.fields().length) {
                 record.fields()[record.numFields()] = field;
 
                 ++record.numFields;
             }
 
-            if (status == ParseStatus.END_RECORD) {
+            if (status == ParseStatus.END_RECORD ||
+                status == ParseStatus.END_DOCUMENT) {
                 return;
             }
         }
@@ -132,7 +186,7 @@ public class Parser {
         boolean insideDquote = false;
         boolean escapedField = false;
         int fieldStart = data.position();
-        int fieldEnd = markStop(data);
+        int fieldEnd = -1;//markStop(data);
 
         while (true) {
             if (!data.hasRemaining()) {
@@ -168,7 +222,6 @@ public class Parser {
                 continue;
             }
 
-        
             if (ch == ',') {
                 if (!escapedField) {
                     fieldEnd = markStop(data);
@@ -176,7 +229,7 @@ public class Parser {
                 
                 status = ParseStatus.HAS_MORE_FIELDS;
 
-                return data.slice(fieldStart, fieldEnd - fieldStart);
+                return segment(data, fieldStart, fieldEnd);
             }
             
             if (ch == '\r') {
@@ -188,7 +241,7 @@ public class Parser {
 
                 status = ParseStatus.END_RECORD;
                 
-                return data.slice(fieldStart, fieldEnd - fieldStart);
+                return segment(data, fieldStart, fieldEnd);
             }
             
             /*
@@ -201,8 +254,24 @@ public class Parser {
     
                 status = ParseStatus.END_RECORD;
                 
-                return data.slice(fieldStart, fieldEnd - fieldStart);
+                return segment(data, fieldStart, fieldEnd);
+            }
+
+            /*
+             * If the file didn't end with CRLF or LF
+             * We will have no data left to read.
+             */
+            if (!data.hasRemaining()) {
+                status = ParseStatus.END_DOCUMENT;
+                //Include the last byte
+                fieldEnd = markStop(data) + 1;
+
+                return segment(data, fieldStart, fieldEnd);
             }
         }
+    }
+
+    private ByteBuffer segment(ByteBuffer data, int fieldStart, int fieldEnd) {
+        return data.slice(fieldStart, fieldEnd - fieldStart);
     }
 }

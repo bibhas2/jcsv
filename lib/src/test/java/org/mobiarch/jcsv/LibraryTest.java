@@ -29,11 +29,11 @@ public class LibraryTest {
             "aa,bb,\"AA, BB\"  ,dd\r\n" +
             "ee,ff,gg,hh,ii,jj\r\n";
         var data = ByteBuffer.wrap(str.getBytes(StandardCharsets.UTF_8));
-
+        int[] line = {0};
         Parser p = new Parser();
         
         p.parse(data, 10, record -> {
-            assertTrue(record.lineIndex() < 2);
+            line[0] = record.lineIndex();
 
             if (record.lineIndex() == 0) {
                 assertEquals(record.field(2).limit(), 6);
@@ -43,16 +43,31 @@ public class LibraryTest {
                 fail("Invalid row index");
             }
         });
+
+        assertEquals(1, line[0]);
     }
 
     @Test
     public void mapTest() throws Exception {
         Parser p = new Parser();
-        
+        int[] line = {0};
+
         p.parse("test-data/medals.csv", 10, record -> {
-            System.out.print("[");
-            print(record.field(0));
-            System.out.println("]");  
+            assertEquals(4, record.numFields());
+
+            for (int i = 0; i < record.numFields(); ++i) {
+                System.out.print("[");
+                print(record.field(i));
+                System.out.print("]"); 
+
+                //Check field lengths
+                assertEquals(i == 0 ? 3 : 2, record.field(i).limit());
+            }
+            System.out.println();
+            
+            line[0] = record.lineIndex();
         });
+
+        assertEquals(4, line[0]);
     }
 }
