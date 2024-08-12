@@ -86,4 +86,24 @@ public class LibraryTest {
 
         assertArrayEquals(expectedMedalTotal, medalTotal);
     }
+
+    @Test
+    public void parseDoubleTest() throws Exception {
+        Parser p = new Parser();
+        double[] total = {0.0};
+
+        p.parse("test-data/products.csv", 10, record -> {
+            if (record.lineIndex() == 0) {
+                //Skip the header row
+                return; 
+            }
+
+            double unitPrice = record.doubleField(1);
+            int quantity = record.intField(2);
+
+            total[0] += unitPrice * quantity;
+        });
+
+        assertEquals(586.58, total[0], 0.001);
+    }
 }
