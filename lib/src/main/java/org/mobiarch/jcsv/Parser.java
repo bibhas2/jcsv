@@ -10,6 +10,16 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.function.Consumer;
 
+/**
+ * <p>A zero copy CSV file parser that doesn't
+ * allocate any memory or copy data to read the text in the file.
+ * It uses a combination of file mapping and ByteBuffer to achieve
+ * this.</p>
+ * <p>Each line in a CSV file is called a record. Each record is made
+ * up of a number of fields. The fields are created by taking slices
+ * from the ByteBuffer of the whole document.</p>
+ * 
+ */
 public class Parser {
     /**
      * This class represents a record (line or row) in a CSV
