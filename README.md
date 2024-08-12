@@ -1,8 +1,8 @@
 # Zero Copy CSV File Parser in Java
-Here we develop a CSV file parser that doesn't allocate any memory or copy data to parse a CSV file. This is done using these techniques:
+Here we develop a CSV file parser that doesn't allocate any memory or copy data to parse a CSV file. This is done using the following techniques:
 
 - Memory map the file
-- Read the fields as ``ByteBuffer`` slices
+- Read the fields in a line as ``ByteBuffer`` slices
 - Keep all text as ``ByteBuffer`` and never convert to Java's String
 
 This implementation follows [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180).
@@ -49,3 +49,30 @@ I'm hoping that this CSV parser will be a better than the traditional libraries 
 - Sorting a CSV file.
 - Searching repeatedly within the file based on a key. You can store the key ``ByteBuffer`` fields in a hash map to speed up searching.
 
+In the example below we lookup the revenue for a product using its ID.
+
+```java
+@Test
+public void comparisonTest() throws Exception {
+    Parser p = new Parser();
+    var map = new HashMap<ByteBuffer, Double>();
+
+    p.parse("test-data/products.csv", 10, record -> {
+        if (record.lineIndex() == 0) {
+            //Skip the header row
+            return; 
+        }
+
+        ByteBuffer productId = record.field(0);
+        double price = record.doubleField(1);
+        int quantity = record.intField(2);
+
+        map.put(productId, price * quantity);
+    });
+
+    var key = ByteBuffer.wrap(
+        "K192".getBytes(StandardCharsets.UTF_8));
+
+    assertEquals(131.45, map.get(key), 0.001);
+}
+```

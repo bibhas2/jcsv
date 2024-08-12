@@ -5,6 +5,7 @@ package org.mobiarch.jcsv;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -105,5 +106,29 @@ public class LibraryTest {
         });
 
         assertEquals(586.58, total[0], 0.001);
+    }
+
+    @Test
+    public void comparisonTest() throws Exception {
+        Parser p = new Parser();
+        var map = new HashMap<ByteBuffer, Double>();
+
+        p.parse("test-data/products.csv", 10, record -> {
+            if (record.lineIndex() == 0) {
+                //Skip the header row
+                return; 
+            }
+
+            ByteBuffer productId = record.field(0);
+            double price = record.doubleField(1);
+            int quantity = record.intField(2);
+
+            map.put(productId, price * quantity);
+        });
+
+        var key = ByteBuffer.wrap(
+            "K192".getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(131.45, map.get(key), 0.001);
     }
 }
