@@ -48,6 +48,54 @@ public class LibraryTest {
         assertEquals(1, line[0]);
     }
 
+    @Test 
+    public void testLINUXLines() {
+        var str =
+            "AA,BB,CC\n" +
+            "DD,EE,FF\n";
+        var data = ByteBuffer.wrap(str.getBytes(StandardCharsets.UTF_8));
+        int[] maxLineIndex = {0};
+        Parser p = new Parser();
+        
+        p.parse(data, 10, record -> {
+            maxLineIndex[0] = record.lineIndex();
+
+            if (record.lineIndex() == 0) {
+                assertEquals(2, record.field(2).limit());
+            } else if (record.lineIndex() == 1) {
+                assertEquals(3, record.numFields());
+            } else {
+                fail("Invalid row index");
+            }
+        });
+
+        assertEquals(1, maxLineIndex[0]);
+    }
+
+    @Test 
+    public void testInvalidDocumentEnding() {
+        var str =
+            "AA,BB,CC\r\n" +
+            "DD,EE,FF"; //Doesn't end with CRLF or LF
+        var data = ByteBuffer.wrap(str.getBytes(StandardCharsets.UTF_8));
+        int[] maxLineIndex = {0};
+        Parser p = new Parser();
+        
+        p.parse(data, 10, record -> {
+            maxLineIndex[0] = record.lineIndex();
+
+            if (record.lineIndex() == 0) {
+                assertEquals(2, record.field(2).limit());
+            } else if (record.lineIndex() == 1) {
+                assertEquals(3, record.numFields());
+            } else {
+                fail("Invalid row index");
+            }
+        });
+
+        assertEquals(1, maxLineIndex[0]);
+    }
+
     @Test
     public void mapTest() throws Exception {
         Parser p = new Parser();

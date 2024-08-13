@@ -152,12 +152,7 @@ public class Parser {
             parseRecord(data, record);
             
             if (status == ParseStatus.END_DOCUMENT) {
-                if (record.numFields() == 0) {
-                    break;
-                } else {
-                    //This happens when a file doesn't end 
-                    //properly with a CR LF or LF.
-                }
+                break;
             }
 
             record.lineIndex = index;
@@ -196,14 +191,19 @@ public class Parser {
         while (true) {
             ByteBuffer field = nextField(data);
 
-            if (field != null && record.numFields() < record.fields().length) {
+            if (status == ParseStatus.END_DOCUMENT) {
+                break;
+            }
+
+            if (record.numFields() < record.fields().length) {
                 record.fields()[record.numFields()] = field;
 
                 ++record.numFields;
+            } else {
+                //We have more fields than maxFields. Just ignore it
             }
 
-            if (status == ParseStatus.END_RECORD ||
-                status == ParseStatus.END_DOCUMENT) {
+            if (status == ParseStatus.END_RECORD) {
                 return;
             }
         }
@@ -293,7 +293,7 @@ public class Parser {
              * We will have no data left to read.
              */
             if (!data.hasRemaining()) {
-                status = ParseStatus.END_DOCUMENT;
+                status = ParseStatus.END_RECORD;
                 //Include the last byte
                 fieldEnd = markStop(data) + 1;
 
